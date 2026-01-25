@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/JatinSihag/Trakr/internal/db"
+	"github.com/JatinSihag/Trakr/internal/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -16,6 +17,8 @@ func main() {
 	db.ConnectToDB()
 
 	r:=gin.Default()
+
+	routes.SetupRoutes(r)
 	port:=os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("Error getting port from env file")
