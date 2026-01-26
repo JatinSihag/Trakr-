@@ -25,6 +25,3 @@ func ConnectToDB(){
 	}
 	fmt.Println("Connected to TrackrDB successfully")
 }
-func main(){
-
-}
