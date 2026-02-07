@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/JatinSihag/Trakr/internal/handlers"
 	"github.com/JatinSihag/Trakr/internal/middleware"
 	"github.com/gin-gonic/gin"
@@ -19,13 +17,12 @@ func SetupRoutes(r *gin.Engine) {
 	protected := r.Group("/v1")
 	protected.Use(middleware.AuthMiddleWare())
 	{
-		protected.GET("/dashboard", func(c *gin.Context) {
-			userId, _ := c.Get("userId")
-			c.JSON(http.StatusOK, gin.H{"message": "you are authorizied,", "user_Id": userId})
-		})
+		protected.GET("/dashboard", handlers.GetDashboard)
 		protected.POST("/profile", handlers.UpdateProfile)
 		protected.GET("/foods/search", handlers.SearchFood)
 		protected.POST("/foods/log", handlers.LogFood)
 		protected.GET("/foods/log", handlers.GetDailyLog)
+		protected.POST("/workouts/log", handlers.LogWorkout)
+		protected.GET("/exercises/search", handlers.GetExercise)
 	}
 }
