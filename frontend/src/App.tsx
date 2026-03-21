@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css'
 import SignUp from './pages/Signup';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
@@ -9,7 +10,7 @@ function App() {
       <Routes>
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<h1 style={{ textAlign: 'center', marginTop: '50px' }}>Dashboard (Coming Soon!)</h1>} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

@@ -26,19 +26,27 @@ func GetDashboard(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"Error": "Unauthorized"})
 		return
 	}
-	// using wait group for 2 background tasks
+
 	var wg sync.WaitGroup
 	wg.Add(3)
-	// channels to bring data from background workers
+
 	userChan := make(chan *models.User, 1)
 	caloriesChan := make(chan float64, 1)
 	exerciseChan := make(chan float64, 1)
-	errChan := make(chan error, 3) // to catch if DB fails
+	errChan := make(chan error, 3)
 
 	go func() {
 		defer wg.Done()
 		var u models.User
-		query := `SELECT weight,height,age,gender,activity_level,goal FROM users WHERE user_id = ?`
+		query := `SELECT 
+			COALESCE(weight, 0), 
+			COALESCE(height, 0), 
+			COALESCE(age, 0), 
+			COALESCE(gender, 'unknown'), 
+			COALESCE(activity_level, 'Not set'), 
+			COALESCE(goal, 'Not set') 
+			FROM users WHERE user_id = ?`
+
 		err := db.DB.QueryRow(query, userId).Scan(&u.Weight, &u.Height, &u.Age, &u.Gender, &u.ActivityLevel, &u.Goal)
 		if err != nil {
 			errChan <- err
@@ -46,16 +54,17 @@ func GetDashboard(c *gin.Context) {
 		}
 		userChan <- &u
 	}()
+
 	go func() {
 		defer wg.Done()
-		query := `SELECT SUM((f.calories_per_100g *l.quantity)/100)
-		FROM nutrition_logs l
-		JOIN foods f ON l.food_id=f.food_id
-		WHERE l.user_id = ? AND l.log_date = CURRENT_DATE`
+		query := `SELECT SUM((f.calories_per_100g * l.quantity)/100)
+        FROM food_logs l
+        JOIN foods f ON l.food_id=f.food_id
+        WHERE l.user_id = ? AND l.log_date = CURRENT_DATE`
 
 		var totalConsumed sql.NullFloat64
 		err := db.DB.QueryRow(query, userId).Scan(&totalConsumed)
-		if err != nil {
+		if err != nil && err != sql.ErrNoRows {
 			errChan <- err
 			return
 		}
@@ -68,14 +77,12 @@ func GetDashboard(c *gin.Context) {
 
 	go func() {
 		defer wg.Done()
-		query := `SELECT SUM(calories_burned) FROM workouts where user_id = ? AND DATE(start_time)=CURRENT_DATE`
+		query := `SELECT SUM(calories_burned) FROM workouts WHERE user_id = ? AND DATE(start_time)=CURRENT_DATE`
 		var total sql.NullFloat64
 		err := db.DB.QueryRow(query, userId).Scan(&total)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				errChan <- err
-				return
-			}
+		if err != nil && err != sql.ErrNoRows {
+			errChan <- err
+			return
 		}
 		if total.Valid {
 			exerciseChan <- total.Float64
@@ -83,15 +90,19 @@ func GetDashboard(c *gin.Context) {
 			exerciseChan <- 0
 		}
 	}()
+
 	wg.Wait()
 	close(errChan)
+
 	if len(errChan) > 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Failed to load dashboard"})
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Failed to load dashboard data"})
 		return
 	}
+
 	user := <-userChan
 	consumed := <-caloriesChan
 	burned := <-exerciseChan
+
 	tdee := user.CalculateTDEE()
 	remaining := (tdee + burned) - consumed
 
